@@ -1,2 +1,11 @@
 /build
 .DS_Store
+src/.vs/slnx.sqlite
+src/.vs/src/v16/.suo
+src/.vs/src/v16/Browse.VC.db
+src/.vs/src/v16/Browse.VC.db-shm
+src/.vs/src/v16/Browse.VC.db
+src/.vs/src/v16/Browse.VC.db-wal
+src/.vs/src/v16/Browse.VC.opendb
+src/.vs/VSWorkspaceState.json
+src/.vs/slnx.sqlite

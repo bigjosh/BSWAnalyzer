@@ -15,13 +15,17 @@ public:
 	virtual void LoadSettings( const char* settings );
 	virtual const char* SaveSettings();
 
-	
-	Channel mInputChannel;
-	U32 mBitRate;
+
+    Channel mSBWDIOChannel;		// Data
+    Channel mSBWTCKChannel;		// Clock
+
+	U32 mResettime;				// Typically 7us
 
 protected:
-	std::auto_ptr< AnalyzerSettingInterfaceChannel >	mInputChannelInterface;
-	std::auto_ptr< AnalyzerSettingInterfaceInteger >	mBitRateInterface;
+	std::auto_ptr< AnalyzerSettingInterfaceChannel > mSBWDIOInterface;
+	std::auto_ptr< AnalyzerSettingInterfaceChannel > mSBWCLKInterface;
+    std::auto_ptr< AnalyzerSettingInterfaceInteger>  mResettimeInterface;
+
 };
 
 #endif //BSW_ANALYZER_SETTINGS
