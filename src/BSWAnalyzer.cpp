@@ -75,7 +75,7 @@ void BSWAnalyzer::WorkerThread()
 
     */
 
-    U32 lastCLKhighEdgeFrame = 0;
+    U64 lastCLKhighEdgeFrame = 0;
 
     // We need to start with a clean entry point, so wait for a time when TCK is high longer than reset period
 
@@ -119,7 +119,7 @@ void BSWAnalyzer::WorkerThread()
             // Jump to clock falling edge
             mBSWTCK->AdvanceToNextEdge();
 
-            U32 falling_edge_sample = mBSWTCK->GetSampleNumber();
+            U64 falling_edge_sample = mBSWTCK->GetSampleNumber();
 
 
             if( falling_edge_sample - clock_rise_sample >= TCK_samples_to_reset )
@@ -164,7 +164,7 @@ void BSWAnalyzer::WorkerThread()
                     // We got a full frame with all 3 signals.
 
                     // End with the falling edge of the 3rd bit
-                    U32 ending_sample = mBSWTCK->GetSampleNumber();
+                    U64 ending_sample = mBSWTCK->GetSampleNumber();
 
                     Frame frame;
                     frame.mData1 = result;
