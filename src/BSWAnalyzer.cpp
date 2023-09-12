@@ -138,8 +138,12 @@ void BSWAnalyzer::WorkerThread()
         // Move data channel to the falling edge
         mBSWDIO->AdvanceToAbsPosition( falling_edge );
 
-        // Add a marker to show we are sampling a data bit
-        mResults->AddMarker( falling_edge, AnalyzerResults::Dot, mSettings->mSBWDIOChannel );
+        // Don't show a marker on the DO falling edge since it doesnot matter. We will mark the rising edge below. 
+        if( current_bit != 2 )
+        {
+            // Add a marker to show we are sampling a data bit
+            mResults->AddMarker( falling_edge, AnalyzerResults::Dot, mSettings->mSBWDIOChannel );
+        }
 
         // Read the state from the data line and fold into the result
 
@@ -152,12 +156,22 @@ void BSWAnalyzer::WorkerThread()
 
         mBSWTCK->AdvanceToNextEdge();
 
+        // High 
+
         if( current_bit == 3 )      // Are we on the final TDO bit? 
         {
 
+            U64 final_rising_edge = mBSWTCK->GetSampleNumber();
+
             // TDO bit is different. We also this one on the rising edge. 
 
-        // Read the state from the data line and fold into the result
+            // Move data channel to the rising edge
+            mBSWDIO->AdvanceToAbsPosition( final_rising_edge);
+
+
+            // Read the state from the data line and fold into the result
+            // Add a marker to show we are sampling a data bit
+            mResults->AddMarker( final_rising_edge, AnalyzerResults::Dot, mSettings->mSBWDIOChannel );
 
             if( mBSWDIO->GetBitState() == BIT_HIGH )
             {
@@ -172,13 +186,13 @@ void BSWAnalyzer::WorkerThread()
             frame.mData1 = result;
             frame.mFlags = 0;
             frame.mStartingSampleInclusive = frame_start;
-            frame.mEndingSampleInclusive = falling_edge;
+            frame.mEndingSampleInclusive = final_rising_edge;       // The bubble will span from the initial falling edge where we sampled TMS to the final rising edge where we sample TDO
             mResults->AddFrame( frame );
 
             FrameV2 frame_v2;
-            frame_v2.AddInteger( "tms", frame.mData1 & ( 1 << 0) );
-            frame_v2.AddInteger( "tdi", frame.mData1 & ( 1 << 1 ) );
-            frame_v2.AddInteger( "tdo", frame.mData1 & ( 1 << 3 ) );
+            frame_v2.AddBoolean( "tms", ( frame.mData1 & ( static_cast<unsigned long long>( 1 ) << 0 ) ) != 0  );
+            frame_v2.AddBoolean( "tdi", ( frame.mData1 & ( static_cast<unsigned long long>( 1 ) << 1 ) ) != 0 );
+            frame_v2.AddBoolean( "tdo", ( frame.mData1 & ( static_cast<unsigned long long>( 1 ) << 3 ) ) != 0 );
             mResults->AddFrameV2( frame_v2, "jtag", frame.mStartingSampleInclusive, frame.mEndingSampleInclusive );
 
             mResults->CommitResults();
