@@ -1,6 +1,9 @@
+#define LOGIC2
+
 #include "BSWAnalyzer.h"
 #include "BSWAnalyzerSettings.h"
 #include <AnalyzerChannelData.h>
+#include <AnalyzerResults.h>        // Apparently needed for FrameV2
 
 BSWAnalyzer::BSWAnalyzer()
 :	Analyzer2(),  
@@ -8,6 +11,7 @@ BSWAnalyzer::BSWAnalyzer()
 	mSimulationInitilized( false )
 {
 	SetAnalyzerSettings( mSettings.get() );
+    UseFrameV2();             // Sadly following the docs dows not seem to work. 
 }
 
 BSWAnalyzer::~BSWAnalyzer()
@@ -146,8 +150,20 @@ void BSWAnalyzer::WorkerThread()
 
         current_bit++;
 
-        if( current_bit == 3 )      
+        mBSWTCK->AdvanceToNextEdge();
+
+        if( current_bit == 3 )      // Are we on the final TDO bit? 
         {
+
+            // TDO bit is different. We also this one on the rising edge. 
+
+        // Read the state from the data line and fold into the result
+
+            if( mBSWDIO->GetBitState() == BIT_HIGH )
+            {
+                result |= ( static_cast<unsigned long long>( 1 ) << current_bit );
+            }
+
             // Completed a frame
 
             // End with the falling edge of the 3rd bit
@@ -157,8 +173,14 @@ void BSWAnalyzer::WorkerThread()
             frame.mFlags = 0;
             frame.mStartingSampleInclusive = frame_start;
             frame.mEndingSampleInclusive = falling_edge;
-
             mResults->AddFrame( frame );
+
+            FrameV2 frame_v2;
+            frame_v2.AddInteger( "tms", frame.mData1 & ( 1 << 0) );
+            frame_v2.AddInteger( "tdi", frame.mData1 & ( 1 << 1 ) );
+            frame_v2.AddInteger( "tdo", frame.mData1 & ( 1 << 3 ) );
+            mResults->AddFrameV2( frame_v2, "jtag", frame.mStartingSampleInclusive, frame.mEndingSampleInclusive );
+
             mResults->CommitResults();
 
             result=0;
@@ -166,7 +188,6 @@ void BSWAnalyzer::WorkerThread()
 
         }
 
-        mBSWTCK->AdvanceToNextEdge();
 
         // High
 

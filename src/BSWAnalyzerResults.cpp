@@ -29,15 +29,15 @@ void BSWAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel, 
 	auto data = frame.mData1;
 
     char buf[ 64 ];
-    ::snprintf( buf, 64, "TMS=%c, TDI=%c, TDO=%c",  bitChar(  data, 2) , bitChar( data , 1 ) , bitChar( data , 0 )  );
+    ::snprintf( buf, 64, "TMS=%c, TDI=%c, TDO=%c",  bitChar(  data, 0) , bitChar( data , 1 ) , bitChar( data , 3 )  );
     AddResultString( buf );
 
 
-	::snprintf( buf, 64, "MS=%c DI=%c DO=%c", bitChar( data, 2 ), bitChar( data, 1 ), bitChar( data, 0 ) );
+	::snprintf( buf, 64, "MS=%c DI=%c DO=%c", bitChar( data, 0 ), bitChar( data, 1 ), bitChar( data, 3 ) );
     AddResultString( buf );
 
 
-	::snprintf( buf, 64, "%c%c%c", bitChar( data, 2 ), bitChar( data, 1 ), bitChar( data, 0 ) );
+	::snprintf( buf, 64, "%c%c%c", bitChar( data, 0 ), bitChar( data, 1 ), bitChar( data, 3 ) );
     AddResultString( buf );
 
 }
@@ -84,7 +84,7 @@ void BSWAnalyzerResults::GenerateFrameTabularText( U64 frame_index, DisplayBase 
 
     // target content: [13] 0 , 1 , 0
     char buf[ 64 ];
-    ::snprintf( buf, 64, "%c, %c, %c", bitChar( data, 2 ), bitChar( data, 1 ), bitChar( data, 0 ) );
+    ::snprintf( buf, 64, "%c, %c, %c", bitChar( data, 0 ), bitChar( data, 1 ), bitChar( data, 3 ) );
     AddTabularText( buf );
 
 #endif
