@@ -5,8 +5,8 @@
 BSWAnalyzerSettings::BSWAnalyzerSettings()
 
 :	mSBWDIOChannel( UNDEFINED_CHANNEL ), 
-	mSBWCLKChannel( UNDEFINED_CHANNEL ), 
-	mCLKLowResetMicroSecs( 7 )
+	mSBWTCKChannel( UNDEFINED_CHANNEL ), 
+	mResettime( 7 )
 {
     mSBWDIOInterface.reset( new AnalyzerSettingInterfaceChannel() );
     mSBWDIOInterface->SetTitleAndTooltip( "SBWDIO", "Standard Bi-Spy-Wire Data In Out" );
@@ -14,14 +14,14 @@ BSWAnalyzerSettings::BSWAnalyzerSettings()
 
     mSBWCLKInterface.reset( new AnalyzerSettingInterfaceChannel() );
     mSBWCLKInterface->SetTitleAndTooltip( "SBWCLK", "Standard Bi-Spy-Wire Clock" );
-    mSBWCLKInterface->SetChannel( mSBWLCKChannel );
+    mSBWCLKInterface->SetChannel( mSBWTCKChannel );
 
 
 	mResettimeInterface.reset( new AnalyzerSettingInterfaceInteger() );
     mResettimeInterface->SetTitleAndTooltip( "Timeout", "Time SBWCLK is low to reset interface (in microsecs)." );
     mResettimeInterface->SetMax( 6000000 );
     mResettimeInterface->SetMin( 1 );
-    mResettimeInterface->SetInteger( mRessettime );
+    mResettimeInterface->SetInteger( mResettime );
 
 	AddInterface( mSBWDIOInterface.get() );
     AddInterface( mSBWCLKInterface.get() );
@@ -46,22 +46,22 @@ BSWAnalyzerSettings::~BSWAnalyzerSettings()
 bool BSWAnalyzerSettings::SetSettingsFromInterfaces()
 {
 
-    if( mSBWDIOInterface.GetChannel() == UNDEFINED_CHANNEL )
+    if( mSBWDIOInterface->GetChannel() == UNDEFINED_CHANNEL )
     {
         SetErrorText( "Please select an input for the channel 1." );
         return false;
     }
 
-    if( mSBWCLKInterface.GetChannel() == UNDEFINED_CHANNEL )
+    if( mSBWCLKInterface->GetChannel() == UNDEFINED_CHANNEL )
     {
         SetErrorText( "Please select an input for the channel 2." );
         return false;
     }
 
     mSBWDIOChannel = mSBWDIOInterface->GetChannel();
-    mSBWCLKChannel = mSBWCLKInterface->GetChannel();
+    mSBWTCKChannel = mSBWCLKInterface->GetChannel();
 
-    if( mSBWDIOChannel == mSBWCLKChannel )
+    if( mSBWDIOChannel == mSBWTCKChannel )
     {
         SetErrorText( "Please select different inputs for the channels." );
         return false;
@@ -80,7 +80,7 @@ void BSWAnalyzerSettings::UpdateInterfacesFromSettings()
 {
 
     mSBWDIOInterface->SetChannel( mSBWDIOChannel );
-    mSBWCLKInterface->SetChannel( mSBWCLKChannel );
+    mSBWCLKInterface->SetChannel( mSBWTCKChannel );
 
 	mResettimeInterface->SetInteger( mResettime );
 }
