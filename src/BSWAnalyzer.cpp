@@ -80,6 +80,8 @@ void BSWAnalyzer::WorkerThread()
 
     */
 
+
+
     // We need to start with a clean entry point, so wait for a time when TCK is high longer than reset period
 
     // Jump to first high edge
@@ -89,145 +91,95 @@ void BSWAnalyzer::WorkerThread()
         mResults->AddMarker( mBSWTCK->GetSampleNumber(), AnalyzerResults::UpArrow, mSettings->mSBWTCKChannel );
     }
 
-    // High
 
-    U64 last_rising_clk = mBSWTCK->GetSampleNumber();
+    // Frame always starts on first falling edge
+    U64 frame_start;
 
-    // Advance to falling edge
-    mBSWTCK->AdvanceToNextEdge();
+    // The result we will put into the frame if all goes well.
+    U64 result;
 
-    // Low
+    // Which bit are we currently reading?
+    // Here we decide that we do not need to see a sync at the very begining of a capture.
+    // Is this correct? I guess you can always use the trigger to make sure the capture starts with a snyc. 
+    unsigned current_bit = 0;
 
-    // Sync by Lookink for a falled edge that has a long enough high before it
-
-    while( ( mBSWTCK->GetSampleNumber() - last_rising_clk ) <  samples_per_reset )
-    {
-        // Low
-
-        mResults->AddMarker( mBSWTCK->GetSampleNumber(), AnalyzerResults::ErrorDot, mSettings->mSBWTCKChannel );
-    
-        mBSWTCK->AdvanceToNextEdge();
-        // Clock is high
-
-        mResults->AddMarker( mBSWTCK->GetSampleNumber(), AnalyzerResults::UpArrow, mSettings->mSBWTCKChannel );
-
-
-        last_rising_clk = mBSWTCK->GetSampleNumber();
-
-        mBSWTCK->AdvanceToNextEdge();
-        // Clock is low
-
-    }
-
-    // Clock is low
-
-    // OK we are at the falling edge of a high that is longer than the reset period, so this is a good place to start
-
-    // Add a marker to show we are restarting a frame (this is actually the initial sync)
-    mResults->AddMarker( mBSWTCK->GetSampleNumber(), AnalyzerResults::Start, mSettings->mSBWTCKChannel );
-
+    // Enter this main loop on rising clk edge
 
     for( ;; )
     {
-        // OK, clock is now low and we are at the start of a new frame
 
-        // The result we will put into the frame if all goes well.
-        U64 result = 0;
+        U64 last_rising_clk = mBSWTCK->GetSampleNumber();
 
-        auto readNextBit = [ & ]( const U8 bitmask )
+        // Advance to falling edge
+        mBSWTCK->AdvanceToNextEdge();
+
+        // Low
+
+        U64 falling_edge = mBSWTCK->GetSampleNumber();
+
+        if( ( falling_edge - last_rising_clk ) >= samples_per_reset )
         {
-            // Assumes you are at falling edge
-            // Reads a bit. 
-            // Advances to next rising edge 
-            // Advances to next falling edge
-            // Returns true if hightime of the most recent high exceeded the timeout (so should restart frame)
-
-            U64 falling_edge_sample = mBSWTCK->GetSampleNumber();
-
-            // Read data bit
-
-            // Move data channel to the falling edge
-            mBSWDIO->AdvanceToAbsPosition( falling_edge_sample );
-
-            // Add a marker to show we are sampling a bit
-            mResults->AddMarker( falling_edge_sample, AnalyzerResults::Dot, mSettings->mSBWDIOChannel );
-
-            // Read the state from the data line and fold into the result
-
-            if( mBSWDIO->GetBitState() == BIT_HIGH )
-            {
-                result |= ( static_cast<unsigned long long>( 1 ) << bitmask );
-            }
-
-
-            // Now we have to step forard to the next falling edge
-
-            // Jump to clock to next rising edge
-            mBSWTCK->AdvanceToNextEdge();
-
-            // High
-
-            last_rising_clk = mBSWTCK->GetSampleNumber();
-
-            mBSWTCK->AdvanceToNextEdge();
-
-            // Low
-
-
-            if( mBSWTCK->GetSampleNumber() - last_rising_clk >= samples_per_reset )
-            {
-                // The clock was high too long, so we have to abort this frame
-
-                // Add a marker to show we are restarting a frame
-                mResults->AddMarker( falling_edge_sample, AnalyzerResults::Start, mSettings->mSBWTCKChannel );
-
-                return true;
-            }
-
-            // Now we know that no reset happened, we can parse the data from the initial falling edge
-
-
-            return false;
-        };
-
-        // possible begining of frame
-        U64 frame_start_sample = mBSWTCK->GetSampleNumber();
-
-        if( !readNextBit( 1 << 2 ) )
-        {
-            // We are at the falling edge of TMS
-           
-            if( !readNextBit( 1 << 1 ) )
-            {
-                // We are at the falling edge of DO
-           
-                if( !readNextBit( 1 << 0 ) )
-                {
-
-                    // We are at the falling edge of DI
-                    // We got a full frame with all 3 signals.
-
-                    // End with the falling edge of the 3rd bit
-                    U64 frame_end_sample = mBSWTCK->GetSampleNumber();
-
-                    Frame frame;
-                    frame.mData1 = result;
-                    frame.mFlags = 0;
-                    frame.mStartingSampleInclusive = frame_start_sample;
-                    frame.mEndingSampleInclusive = frame_end_sample;
-
-                    mResults->AddFrame( frame );
-                    mResults->CommitResults();
-                }
-            }
+            // We were high long enough to trigger a reset
+            current_bit = 0;
+            // Show the reset with a start marker
+            mResults->AddMarker( falling_edge, AnalyzerResults::Start, mSettings->mSBWTCKChannel );
         }
 
-        // Note that if any of the above readNextBit()'s found a reset, then we will enter the next loop iteration
-        // on the falling edge after that long high and start reading a frame. 
+        if(current_bit==0) {
+            // Begining of a new frame
+            result = 0;
+            frame_start = falling_edge;        
+        } 
+
+        // Move data channel to the falling edge
+        mBSWDIO->AdvanceToAbsPosition( falling_edge );
+
+        // Add a marker to show we are sampling a data bit
+        mResults->AddMarker( falling_edge, AnalyzerResults::Dot, mSettings->mSBWDIOChannel );
+
+        // Read the state from the data line and fold into the result
+
+        if( mBSWDIO->GetBitState() == BIT_HIGH )
+        {
+            result |= ( static_cast<unsigned long long>( 1 ) << current_bit );
+        }
+
+        current_bit++;
+
+        if( current_bit == 3 )      
+        {
+            // Completed a frame
+
+            // End with the falling edge of the 3rd bit
+
+            Frame frame;
+            frame.mData1 = result;
+            frame.mFlags = 0;
+            frame.mStartingSampleInclusive = frame_start;
+            frame.mEndingSampleInclusive = falling_edge;
+
+            mResults->AddFrame( frame );
+            mResults->CommitResults();
+
+            result=0;
+            current_bit = 0;
+
+        }
+
+        mBSWTCK->AdvanceToNextEdge();
+
+        // High
+
+
+        // Here we could test if the low was low too long, but what would we do?
+        // Docs seems to say that the target SBW interface just stops if low is low too long, so will
+        // need a reset anyway, and at least here you can see what the host is doing. 
+
 
 		ReportProgress( mBSWTCK->GetSampleNumber() );
 
     }
+       
 }
 
 bool BSWAnalyzer::NeedsRerun()
