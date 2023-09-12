@@ -35,6 +35,38 @@ void BSWAnalyzer::WorkerThread()
     AnalyzerChannelData* mBSWTCK = GetAnalyzerChannelData( mSettings->mSBWTCKChannel );
     AnalyzerChannelData* mBSWDIO = GetAnalyzerChannelData( mSettings->mSBWDIOChannel );
 
+    while( 1 )
+    {
+
+    // Jump to first high edge
+        if( mBSWTCK->GetBitState() == BIT_LOW )
+            mBSWTCK->AdvanceToNextEdge();
+
+        U32 start = mBSWTCK->GetSampleNumber();
+
+        mResults->AddMarker( start, AnalyzerResults::Start, mSettings->mSBWTCKChannel );
+
+        mBSWTCK->AdvanceToNextEdge();
+
+        U32 end = mBSWTCK->GetSampleNumber();
+
+        mBSWDIO->AdvanceToAbsPosition( end );
+
+        mResults->AddMarker( end, AnalyzerResults::Dot, mSettings->mSBWDIOChannel );
+
+
+        Frame frame;
+        frame.mData1 = mBSWDIO->GetBitState() == BIT_HIGH ? 1 : 0;
+        frame.mFlags = 0;
+        frame.mStartingSampleInclusive = start;
+        frame.mEndingSampleInclusive = end;
+
+        mResults->AddFrame( frame );
+        mResults->CommitResults();
+
+            
+    }
+
     U32 lastCLKhighEdgeFrame = 0;
 
     // We need to start with a clean entry point, so wait for a time when TCK is high longer than reset period
