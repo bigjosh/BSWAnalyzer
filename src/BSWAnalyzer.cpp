@@ -27,10 +27,15 @@ void BSWAnalyzer::SetupResults()
 void BSWAnalyzer::WorkerThread()
 {
 
-    U32 mSampleRateHz = GetSampleRate();
+    const U32 samples_per_sec = GetSampleRate();
 
-    // Resettime is in microseconds, so we divide by 1,000,000 to get seconds.
-    U32 TCK_samples_to_reset = U32( double( mSampleRateHz ) / ( double( mSettings->mResettime ) / 1000000.0 ) );
+    const U32 microsecs_per_sec = 1000000UL;
+
+    const U32 microsecs_per_reset = mSettings->mResettime;
+
+    const U32 samples_per_microsec = samples_per_sec / microsecs_per_sec;
+
+    const U32 samples_per_reset = samples_per_microsec * microsecs_per_reset;
 
     AnalyzerChannelData* mBSWTCK = GetAnalyzerChannelData( mSettings->mSBWTCKChannel );
     AnalyzerChannelData* mBSWDIO = GetAnalyzerChannelData( mSettings->mSBWDIOChannel );
@@ -95,7 +100,7 @@ void BSWAnalyzer::WorkerThread()
 
     // Sync by Lookink for a falled edge that has a long enough high before it
 
-    while( ( mBSWTCK->GetSampleNumber() - last_rising_clk ) <  TCK_samples_to_reset )
+    while( ( mBSWTCK->GetSampleNumber() - last_rising_clk ) <  samples_per_reset )
     {
         // Low
 
@@ -103,6 +108,9 @@ void BSWAnalyzer::WorkerThread()
     
         mBSWTCK->AdvanceToNextEdge();
         // Clock is high
+
+        mResults->AddMarker( mBSWTCK->GetSampleNumber(), AnalyzerResults::UpArrow, mSettings->mSBWTCKChannel );
+
 
         last_rising_clk = mBSWTCK->GetSampleNumber();
 
@@ -166,7 +174,7 @@ void BSWAnalyzer::WorkerThread()
             // Low
 
 
-            if( mBSWTCK->GetSampleNumber() - last_rising_clk >= TCK_samples_to_reset )
+            if( mBSWTCK->GetSampleNumber() - last_rising_clk >= samples_per_reset )
             {
                 // The clock was high too long, so we have to abort this frame
 
