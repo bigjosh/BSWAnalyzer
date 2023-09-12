@@ -19,57 +19,130 @@ void BSWAnalyzer::SetupResults()
 {
 	mResults.reset( new BSWAnalyzerResults( this, mSettings.get() ) );
 	SetAnalyzerResults( mResults.get() );
-	mResults->AddChannelBubblesWillAppearOn( mSettings->mInputChannel );
+	mResults->AddChannelBubblesWillAppearOn( mSettings->mSBWTCKChannel );
+
 }
+
 
 void BSWAnalyzer::WorkerThread()
 {
-	mSampleRateHz = GetSampleRate();
 
-	mSerial = GetAnalyzerChannelData( mSettings->mInputChannel );
+    U32 mSampleRateHz = GetSampleRate();
 
-	if( mSerial->GetBitState() == BIT_LOW )
-		mSerial->AdvanceToNextEdge();
+    // Resettime is in microseconds, so we divide by 1,000,000 to get seconds.
+    U32 TCK_samples_to_reset = U32( double( mSampleRateHz ) / ( double( mSettings->mResettime ) / 1000000.0 ) );
 
-	U32 samples_per_bit = mSampleRateHz / mSettings->mBitRate;
-	U32 samples_to_first_center_of_first_data_bit = U32( 1.5 * double( mSampleRateHz ) / double( mSettings->mBitRate ) );
+    AnalyzerChannelData* mBSWTCK = GetAnalyzerChannelData( mSettings->mSBWTCKChannel );
+    AnalyzerChannelData* mBSWDIO = GetAnalyzerChannelData( mSettings->mSBWDIOChannel );
 
-	for( ; ; )
-	{
-		U8 data = 0;
-		U8 mask = 1 << 7;
-		
-		mSerial->AdvanceToNextEdge(); //falling edge -- beginning of the start bit
+    U32 lastCLKhighEdgeFrame = 0;
 
-		U64 starting_sample = mSerial->GetSampleNumber();
+    // We need to start with a clean entry point, so wait for a time when TCK is high longer than reset period
 
-		mSerial->Advance( samples_to_first_center_of_first_data_bit );
+    // Jump to first high edge
+    if( mBSWTCK->GetBitState() == BIT_LOW )
+        mBSWTCK->AdvanceToNextEdge();
 
-		for( U32 i=0; i<8; i++ )
-		{
-			//let's put a dot exactly where we sample this bit:
-			mResults->AddMarker( mSerial->GetSampleNumber(), AnalyzerResults::Dot, mSettings->mInputChannel );
+    // Here we know clock is high
 
-			if( mSerial->GetBitState() == BIT_HIGH )
-				data |= mask;
-
-			mSerial->Advance( samples_per_bit );
-
-			mask = mask >> 1;
-		}
+    while( ( ( mBSWTCK->GetSampleNumber() ) - lastCLKhighEdgeFrame ) < TCK_samples_to_reset )
+    {
+        lastCLKhighEdgeFrame = mBSWTCK->GetSampleNumber();
+        mBSWTCK->AdvanceToNextEdge();
+        // Clock is low
+        mBSWTCK->AdvanceToNextEdge();
+        // Clock is high
+    }
 
 
-		//we have a byte to save. 
-		Frame frame;
-		frame.mData1 = data;
-		frame.mFlags = 0;
-		frame.mStartingSampleInclusive = starting_sample;
-		frame.mEndingSampleInclusive = mSerial->GetSampleNumber();
+    for( ;; )
+    {
+        // OK, clock is now high and has been high long enough to reset
+        lastCLKhighEdgeFrame = mBSWTCK->GetSampleNumber();
 
-		mResults->AddFrame( frame );
-		mResults->CommitResults();
-		ReportProgress( frame.mEndingSampleInclusive );
-	}
+        U32 starting_sample = mBSWTCK->GetSampleNumber();
+
+        // Add a marker to show we are starting a frame
+        // This is nice becuase it will show the reset even if this frame ends up not getting properly decoded
+        mResults->AddMarker( starting_sample, AnalyzerResults::Start, mSettings->mSBWTCKChannel );
+
+        // Result we will put into the frame is all goes well.
+        U32 result = 0;
+
+        auto readNextBit = [ & ]( const U8 bitmask )
+        {
+            // Reads a bit. Assumes clock is high. Returns at the falling edge.
+            // Returns flase if bit was read, true if hightime exceeded timeout
+
+            U32 clock_rise_sample = mBSWTCK->GetSampleNumber(); // When did clock rise?
+
+            // Jump to clock falling edge
+            mBSWTCK->AdvanceToNextEdge();
+
+            U32 falling_edge_sample = mBSWTCK->GetSampleNumber();
+
+
+            if( falling_edge_sample - clock_rise_sample >= TCK_samples_to_reset )
+            {
+                // The clock was high too long, so we have to abort this frame
+                return true;
+            }
+
+
+            // Move data channel to the falling edge
+            mBSWDIO->AdvanceToAbsPosition( falling_edge_sample );
+
+
+            // Add a marker to show we are sampling a bit
+            mResults->AddMarker( falling_edge_sample, AnalyzerResults::Dot, mSettings->mSBWDIOChannel );
+
+            // Read the state from the data line and fold into the result
+
+            if( mBSWDIO->GetBitState() == BIT_HIGH )
+            {
+                result |= ( 1 << bitmask );
+            }
+
+            return false;
+        };
+
+        if( !readNextBit( 1 << 2 ) )
+        {
+            // We are at the falleing edge of TMS
+            // Advance to next rising clock
+            mBSWTCK->AdvanceToNextEdge();
+
+            if( !readNextBit( 1 << 1 ) )
+            {
+                // We are at the falling edge of DO
+                // Advance to next rising clock
+                mBSWTCK->AdvanceToNextEdge();
+
+                if( !readNextBit( 1 << 1 ) )
+                {
+                    // We are at the falling edge of DI
+                    // We got a full frame with all 3 signals.
+
+                    // End with the falling edge of the 3rd bit
+                    U32 ending_sample = mBSWTCK->GetSampleNumber();
+
+                    Frame frame;
+                    frame.mData1 = result;
+                    frame.mFlags = 0;
+                    frame.mStartingSampleInclusive = starting_sample;
+                    frame.mEndingSampleInclusive = ending_sample;
+
+                    mResults->AddFrame( frame );
+                    mResults->CommitResults();
+                }
+            }
+        }
+
+		ReportProgress( mBSWTCK->GetSampleNumber() );
+
+        // Advance to rising edge, ready to start a new frame
+        mBSWTCK->AdvanceToNextEdge();
+    }
 }
 
 bool BSWAnalyzer::NeedsRerun()
@@ -90,7 +163,7 @@ U32 BSWAnalyzer::GenerateSimulationData( U64 minimum_sample_index, U32 device_sa
 
 U32 BSWAnalyzer::GetMinimumSampleRateHz()
 {
-	return mSettings->mBitRate * 4;
+	return mSettings->mResettime * 4;
 }
 
 const char* BSWAnalyzer::GetAnalyzerName() const

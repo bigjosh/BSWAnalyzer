@@ -16,14 +16,30 @@ BSWAnalyzerResults::~BSWAnalyzerResults()
 {
 }
 
+char bitChar( const unsigned x , unsigned place )
+{
+    return ( x & ( 1 << place ) ? '1' : '0' );
+}
+
 void BSWAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel, DisplayBase display_base )
 {
 	ClearResultStrings();
 	Frame frame = GetFrame( frame_index );
 
-	char number_str[128];
-	AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, number_str, 128 );
-	AddResultString( number_str );
+	auto data = frame.mData1;
+
+    char buf[ 64 ];
+    ::snprintf( buf, 64, "TMS=%c, TDI=%c, TDO=%c",  bitChar(  data, 2) , bitChar( data , 1 ) , bitChar( data , 0 )  );
+    AddResultString( buf );
+
+
+	::snprintf( buf, 64, "MS=%c DI=%c DO=%c", bitChar( data, 2 ), bitChar( data, 1 ), bitChar( data, 0 ) );
+    AddResultString( buf );
+
+
+	::snprintf( buf, 64, "%c%c%c", bitChar( data, 2 ), bitChar( data, 1 ), bitChar( data, 0 ) );
+    AddResultString( buf );
+
 }
 
 void BSWAnalyzerResults::GenerateExportFile( const char* file, DisplayBase display_base, U32 export_type_user_id )
@@ -62,11 +78,15 @@ void BSWAnalyzerResults::GenerateFrameTabularText( U64 frame_index, DisplayBase 
 {
 #ifdef SUPPORTS_PROTOCOL_SEARCH
 	Frame frame = GetFrame( frame_index );
+
+	auto data = frame.mData1;
 	ClearTabularText();
 
-	char number_str[128];
-	AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, number_str, 128 );
-	AddTabularText( number_str );
+    // target content: [13] 0 , 1 , 0
+    char buf[ 64 ];
+    ::snprintf( buf, 64, "%c, %c, %c", bitChar( data, 2 ), bitChar( data, 1 ), bitChar( data, 0 ) );
+    AddTabularText( buf );
+
 #endif
 }
 

@@ -18,7 +18,7 @@ void BSWSimulationDataGenerator::Initialize( U32 simulation_sample_rate, BSWAnal
 	mSimulationSampleRateHz = simulation_sample_rate;
 	mSettings = settings;
 
-	mSerialSimulationData.SetChannel( mSettings->mInputChannel );
+	mSerialSimulationData.SetChannel( mSettings->mSBWTCKChannel );
 	mSerialSimulationData.SetSampleRate( simulation_sample_rate );
 	mSerialSimulationData.SetInitialBitState( BIT_HIGH );
 }
@@ -38,7 +38,7 @@ U32 BSWSimulationDataGenerator::GenerateSimulationData( U64 largest_sample_reque
 
 void BSWSimulationDataGenerator::CreateSerialByte()
 {
-	U32 samples_per_bit = mSimulationSampleRateHz / mSettings->mBitRate;
+	U32 samples_per_bit = mSimulationSampleRateHz / mSettings->mResettime;
 
 	U8 byte = mSerialText[ mStringIndex ];
 	mStringIndex++;
