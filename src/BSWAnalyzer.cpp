@@ -100,21 +100,21 @@ void BSWAnalyzer::WorkerThread()
         // OK, clock is now high and has been high long enough to reset
         lastCLKhighEdgeFrame = mBSWTCK->GetSampleNumber();
 
-        U32 starting_sample = mBSWTCK->GetSampleNumber();
+        U64 starting_sample = mBSWTCK->GetSampleNumber();
 
         // Add a marker to show we are starting a frame
         // This is nice becuase it will show the reset even if this frame ends up not getting properly decoded
         mResults->AddMarker( starting_sample, AnalyzerResults::Start, mSettings->mSBWTCKChannel );
 
         // Result we will put into the frame is all goes well.
-        U32 result = 0;
+        U64 result = 0;
 
         auto readNextBit = [ & ]( const U8 bitmask )
         {
             // Reads a bit. Assumes clock is high. Returns at the falling edge.
             // Returns flase if bit was read, true if hightime exceeded timeout
 
-            U32 clock_rise_sample = mBSWTCK->GetSampleNumber(); // When did clock rise?
+            U64 clock_rise_sample = mBSWTCK->GetSampleNumber(); // When did clock rise?
 
             // Jump to clock falling edge
             mBSWTCK->AdvanceToNextEdge();
