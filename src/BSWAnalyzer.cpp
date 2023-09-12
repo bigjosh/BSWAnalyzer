@@ -30,10 +30,15 @@ void BSWAnalyzer::WorkerThread()
     U32 mSampleRateHz = GetSampleRate();
 
     // Resettime is in microseconds, so we divide by 1,000,000 to get seconds.
-    TCK_samples_to_reset = U32( double( mSampleRateHz ) / ( double( mSettings->mResettime ) / 1000000.0 ) );
+    U32 TCK_samples_to_reset = U32( double( mSampleRateHz ) / ( double( mSettings->mResettime ) / 1000000.0 ) );
 
-    mBSWTCK = GetAnalyzerChannelData( mSettings->mSBWTCKChannel );
-    mBSWDIO = GetAnalyzerChannelData( mSettings->mSBWDIOChannel );
+    AnalyzerChannelData* mBSWTCK = GetAnalyzerChannelData( mSettings->mSBWTCKChannel );
+    AnalyzerChannelData* mBSWDIO = GetAnalyzerChannelData( mSettings->mSBWDIOChannel );
+
+
+    /*
+    * 
+    * Test code
 
     while( 1 )
     {
@@ -67,6 +72,8 @@ void BSWAnalyzer::WorkerThread()
         ReportProgress( end );
             
     }
+
+    */
 
     U32 lastCLKhighEdgeFrame = 0;
 
