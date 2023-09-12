@@ -16,9 +16,9 @@ BSWAnalyzerResults::~BSWAnalyzerResults()
 {
 }
 
-char bitChar( const unsigned x , unsigned place )
+char bitChar( const U64 x , unsigned place )
 {
-    return ( x & ( 1 << place ) ? '1' : '0' );
+    return ( x & (  ((U64) 1) << place ) ? '1' : '0' );
 }
 
 void BSWAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel, DisplayBase display_base )

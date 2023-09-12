@@ -25,6 +25,14 @@ protected: //vars
 	std::auto_ptr< BSWAnalyzerSettings > mSettings;
 	std::auto_ptr< BSWAnalyzerResults > mResults;
 
+
+    // Resettime is in microseconds, so we divide by 1,000,000 to get seconds.
+    U32 TCK_samples_to_reset;
+
+    AnalyzerChannelData* mBSWTCK ;
+    AnalyzerChannelData* mBSWDIO ;
+
+
 	BSWSimulationDataGenerator mSimulationDataGenerator;
 	bool mSimulationInitilized;
 
