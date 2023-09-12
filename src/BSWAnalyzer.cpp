@@ -83,55 +83,72 @@ void BSWAnalyzer::WorkerThread()
     if( mBSWTCK->GetBitState() == BIT_LOW )
         mBSWTCK->AdvanceToNextEdge();
 
-    // Here we know clock is high
+    U64 last_rising_clk = mBSWTCK->GetSampleNumber();
 
-    while( ( ( mBSWTCK->GetSampleNumber() ) - lastCLKhighEdgeFrame ) < TCK_samples_to_reset )
+    // Advance to falling edge
+    mBSWTCK->AdvanceToNextEdge();
+
+    while( ( mBSWTCK->GetSampleNumber() - last_rising_clk ) <  TCK_samples_to_reset )
     {
-        lastCLKhighEdgeFrame = mBSWTCK->GetSampleNumber();
-        mBSWTCK->AdvanceToNextEdge();
-        // Clock is low
+
+
         mBSWTCK->AdvanceToNextEdge();
         // Clock is high
+
+        last_rising_clk = mBSWTCK->GetSampleNumber();
+
+        mBSWTCK->AdvanceToNextEdge();
+        // Clock is low
+
     }
+
+    // Clock is low
+
+    // OK we are at the falling edge of a high that is longer than the reset period, so this is a good place to start
+
+    // Add a marker to show we are restarting a frame (this is actually the initial sync)
+    mResults->AddMarker( mBSWTCK->GetSampleNumber(), AnalyzerResults::Start, mSettings->mSBWTCKChannel );
 
 
     for( ;; )
     {
-        // OK, clock is now high and has been high long enough to reset
-        lastCLKhighEdgeFrame = mBSWTCK->GetSampleNumber();
-
-        U64 starting_sample = mBSWTCK->GetSampleNumber();
-
-        // Add a marker to show we are starting a frame
-        // This is nice becuase it will show the reset even if this frame ends up not getting properly decoded
-        mResults->AddMarker( starting_sample, AnalyzerResults::Start, mSettings->mSBWTCKChannel );
+        // OK, clock is now low and we are at the start of a new frame
 
         // Result we will put into the frame is all goes well.
         U64 result = 0;
 
         auto readNextBit = [ & ]( const U8 bitmask )
         {
-            // Reads a bit. Assumes clock is high. Returns at the falling edge.
-            // Returns flase if bit was read, true if hightime exceeded timeout
-
-            U64 clock_rise_sample = mBSWTCK->GetSampleNumber(); // When did clock rise?
-
-            // Jump to clock falling edge
-            mBSWTCK->AdvanceToNextEdge();
+            // Assumes you are at falling edge
+            // Reads a bit. 
+            // Advances to next rising edge 
+            // Advances to next falling edge
+            // Returns true if hightime exceeded timeout
 
             U64 falling_edge_sample = mBSWTCK->GetSampleNumber();
 
+            // Jump to clock to next rising edge
+            mBSWTCK->AdvanceToNextEdge();
 
-            if( falling_edge_sample - clock_rise_sample >= TCK_samples_to_reset )
+            last_rising_clk = mBSWTCK->GetSampleNumber();
+
+            // Advance to next falling edge
+            mBSWTCK->AdvanceToNextEdge();
+
+            if( falling_edge_sample - last_rising_clk >= TCK_samples_to_reset )
             {
                 // The clock was high too long, so we have to abort this frame
+
+                // Add a marker to show we are restarting a frame
+                mResults->AddMarker( falling_edge_sample, AnalyzerResults::Start, mSettings->mSBWTCKChannel );
+
                 return true;
             }
 
+            // Now we know that no reset happened, we can parse the data from the initial falling edge
 
             // Move data channel to the falling edge
             mBSWDIO->AdvanceToAbsPosition( falling_edge_sample );
-
 
             // Add a marker to show we are sampling a bit
             mResults->AddMarker( falling_edge_sample, AnalyzerResults::Dot, mSettings->mSBWDIOChannel );
@@ -140,15 +157,19 @@ void BSWAnalyzer::WorkerThread()
 
             if( mBSWDIO->GetBitState() == BIT_HIGH )
             {
-                result |= ( 1 << bitmask );
+                result |= ( static_cast<unsigned long long>( 1 ) << bitmask );
             }
 
             return false;
         };
 
+        // possible begining of frame
+        U64 starting_sample = mBSWTCK->GetSampleNumber();
+
         if( !readNextBit( 1 << 2 ) )
         {
             // We are at the falleing edge of TMS
+           
             // Advance to next rising clock
             mBSWTCK->AdvanceToNextEdge();
 
