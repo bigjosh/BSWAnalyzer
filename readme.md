@@ -20,6 +20,8 @@ I do not even try to decode the TCLK signal becuase I don't think you can do it 
 
 I ignore error cases when the DIO line is low for longer than 7us. According to the docs, this disables the interface but they do not seem to tell you what cases can re-enable the interface and what state it comes back to.
 
+I did not implement the generate test data stuff. You can load some sample captures from the [`/samples`](/samples) directory in this repo.
+
 ## Install 
 Download the latest release from this repo and copy the files to the directory that you currently have set for Customer Low Level Analizers in Preferences...
 
