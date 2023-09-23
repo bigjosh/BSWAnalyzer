@@ -4,7 +4,7 @@ This is a low-level anaylizer for the Salae Logic Analizer.
 
 BSW is a two pin interface that is used to program and debug TI's MSP430 MCU's. It is an encapulation layer that it takes the normal four JTAG pins and serializes them into two pins to save space at the cost of being slower and more complicated. 
 
-This analyizer only decodes the BSW signals into the standard JTAG signals. You can then use a high level analizyer to decode those. 
+This analyizer only decodes the BSW signals into the standard JTAG signals. You can then use a high level analizyer like [this one](https://github.com/bigjosh/msp-jtag-analyzer) to decode those. 
 
 ## Pin names
 
@@ -30,6 +30,13 @@ Download the latest release from this repo and copy the files to the directory t
 ## Why
 
 I had some MSP430s that were failing durring production programming so I wanted to see what the MSP430Flasher software was doing. Note that this showed that it is doing a lot of stuff and wasting lots of time, so you could write a much faster programming system.
+
+## Preview
+
+![image](https://github.com/bigjosh/BSWAnalyzer/assets/5520281/66a5fe7a-664d-4d35-b030-344c956e396d)
+
+The green dot indicates a restart of the interface. The blue dots indicate where the TDI line is sampled. 
+
 
 ## Problems
 
